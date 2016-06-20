@@ -1,0 +1,3 @@
+[submodule "pyskoocheh/protobuf"]
+	path = pyskoocheh/protobuf
+  url = https://github.com/ASL-19/paskoocheh-pb.git
