@@ -1,6 +1,7 @@
 """ ActionLog Module
     Holds functions for logging file downloads in DynamoDB
 """
+import hashlib
 import time as systime
 import boto3
 from botocore.exceptions import ClientError
@@ -9,9 +10,9 @@ from pyskoocheh.errors import AWSError
 CLEARED_USER_ID = "-"
 
 # DynamoDB functions
-def is_limit_exceeded(user_name, action_name, expiry=86400):
+def is_limit_exceeded(user_name, action_name, expiry=85000):
     """ Access rate limit table in DynamoDB and
-        limit to one request per file per day (86400 seconds)
+        limit to one request per file per 23 hours (85000 seconds)
 
     Args:
         user_name: address that is requesting this file
@@ -23,13 +24,14 @@ def is_limit_exceeded(user_name, action_name, expiry=86400):
         AWSError: when AWS call fails
     """
     dynamodb = boto3.client("dynamodb")
+    user_hash = hashlib.sha512(str(user_name)).hexdigest()
     try:
         requests_today = dynamodb.query(
             TableName="action_log",
             KeyConditionExpression="user_name = :user_name AND action_time > :action_time",
             FilterExpression="action_name = :action_name",
             ExpressionAttributeValues={
-                ":user_name": {"S": str(user_name)},
+                ":user_name": {"S": str(user_hash)},
                 ":action_time": {"N": str(systime.time() - expiry)},
                 ":action_name": {"S": str(action_name)},
             })
@@ -49,13 +51,14 @@ def user_has_requested_file(user_name):
         AWSError: when AWS call fails
     """
     dynamodb = boto3.client("dynamodb")
+    user_hash = hashlib.sha512(str(user_name)).hexdigest()
     try:
         requests = dynamodb.query(
             TableName="action_log",
             KeyConditionExpression="user_name = :user_name",
             Limit=1,
             ExpressionAttributeValues={
-                ":user_name": {"S": str(user_name)}
+                ":user_name": {"S": str(user_hash)}
             })
     except ClientError as error:
         raise AWSError("Unable to retrieve action log: {}".format(str(error)))
@@ -74,8 +77,8 @@ def clear_user_id(age, maxdel = 100):
         AWSError: dynamodb call failed
     """
 
-    # Convert the age to a proper epoch time 
-    date_old = systime.time() - age * 3600 
+    # Convert the age to a proper epoch time
+    date_old = systime.time() - age * 3600
 
     putitem_args = {}
     putitem_args["TableName"] = "action_log"
@@ -92,7 +95,7 @@ def clear_user_id(age, maxdel = 100):
 
     while not query_done:
         if previous_key != {}:
-            putitem_args["ExclusiveStartKey"] = previous_key 
+            putitem_args["ExclusiveStartKey"] = previous_key
 
         try:
             result = dynamodb.scan(**putitem_args)
@@ -108,7 +111,7 @@ def clear_user_id(age, maxdel = 100):
         # We can use batch_write_item for optimization
         if result["Count"] != 0:
             for item in result["Items"]:
-                
+
                 # We are limiting the number of records to be deleted each time
                 deleted += 1
                 if deleted > maxdel:
@@ -117,7 +120,7 @@ def clear_user_id(age, maxdel = 100):
                 try:
 
                     log_action(CLEARED_USER_ID, item["action_name"]["S"], item["source"]["S"], item["action_time"]["N"], "action_log_cleaned")
-                
+
                     dynamodb.delete_item(
                         TableName = "action_log",
                         Key = {
@@ -125,7 +128,7 @@ def clear_user_id(age, maxdel = 100):
                             "action_time": item["action_time"]
                         }
                     )
-                    
+
                 except ClientError as error:
                     raise AWSError("Unable to update item from action log: {}".format(str(error)))
 
@@ -144,8 +147,8 @@ def clean_action_log(age, maxdel = 100):
         AWSError: dynamodb call failed
     """
 
-    # Convert the age to a proper epoch time 
-    date_old = systime.time() - age * 3600 
+    # Convert the age to a proper epoch time
+    date_old = systime.time() - age * 3600
 
     putitem_args = {}
     putitem_args["TableName"] = "action_log"
@@ -162,7 +165,7 @@ def clean_action_log(age, maxdel = 100):
 
     while not query_done:
         if previous_key != {}:
-            putitem_args["ExclusiveStartKey"] = previous_key 
+            putitem_args["ExclusiveStartKey"] = previous_key
 
         try:
             result = dynamodb.scan(**putitem_args)
@@ -178,7 +181,7 @@ def clean_action_log(age, maxdel = 100):
         # We can use batch_write_item for optimization
         if result["Count"] != 0:
             for item in result["Items"]:
-                
+
                 # We are limiting the number of records to be deleted each time
                 deleted += 1
                 if deleted > maxdel:
@@ -191,7 +194,7 @@ def clean_action_log(age, maxdel = 100):
                             "user_name": item["user_name"],
                             "action_time": item["action_time"]
                         })
-                
+
                 except ClientError as error:
                     raise AWSError("Unable to delete item from action log: {}".format(str(error)))
 
@@ -217,11 +220,12 @@ def log_action(user_name, action_name, source, time = None, table = None):
        table = "action_log"
 
     dynamodb = boto3.client("dynamodb")
+    user_hash = hashlib.sha512(str(user_name)).hexdigest()
     try:
         dynamodb.put_item(
             TableName=table,
             Item={
-                "user_name": {"S": str(user_name)},
+                "user_name": {"S": str(user_hash)},
                 "action_time": {"N": str(time)},
                 "action_name": {"S": str(action_name)},
                 "source": {"S": str(source)},

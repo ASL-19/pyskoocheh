@@ -49,7 +49,7 @@ def get_feedback_digest(table_name, days=1):
     else:
         return False
 
-def send_email(email_from, email_to, subject, text_body, html_body, file_name, file_data):
+def send_email(email_from, email_to, subject, text_body, html_body, file_name, file_data, src_email=None):
     """ Send email with text, html and attachment sections
 
     Args:
@@ -88,7 +88,11 @@ def send_email(email_from, email_to, subject, text_body, html_body, file_name, f
         msg.attach(part)
 
     try:
-        response = sesclient.send_raw_email(RawMessage={'Data': msg.as_string()})
+        if src_email == None:
+            response = sesclient.send_raw_email(RawMessage={'Data': msg.as_string()})
+        else:
+            response = sesclient.send_raw_email(Source=src_email,
+                                                RawMessage={'Data': msg.as_string()})
     except ClientError as error:
         raise AWSError('SendMail UnknownError: {}'.format(str(error)))
 

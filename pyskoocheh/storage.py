@@ -123,6 +123,7 @@ def put_object_metadata(bucket, key, meta_key, meta_value):
         )
     except ClientError as error:
         raise AWSError("Error loading metadata from S3: {}".format(str(error)))
+    return obj
 
 def get_temp_link(bucket, key, key_id, secret_key, expiry=300):
     """ Get expiring S3 url with temp token

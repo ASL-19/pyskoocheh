@@ -15,7 +15,6 @@ TELEGRAM_HOSTNAME = "https://api.telegram.org"
 TELEGRAM_SEC_PORT = 443
 TELEGRAM_METHOD = "POST"
 MAX_ITEMS_PER_ROW = 4
-HOME_TEXT = "Back to home"
 
 def get_file_path(token, file_id):
     """ Send a text message and hides the keyboard for the user.
@@ -34,7 +33,7 @@ def get_file_path(token, file_id):
 
     headers = {
         "Content-Type": "application/json",
-        "Content-Length": len(json.dumps(post_data))
+        "Content-Length": str(len(json.dumps(post_data)))
     }
 
     url = make_getfile_url(token)
@@ -55,7 +54,6 @@ def hide_keyboard(token, chat_id, text):
 
     Args:
         token: telegram api key
-        msg_id: in case we want to reply
         chat_id: ID of the chat with the user
         text: text to be sent with the link
     Returns:
@@ -71,7 +69,7 @@ def hide_keyboard(token, chat_id, text):
 
     headers = {
         "Content-Type": "application/json",
-        "Content-Length": len(json.dumps(post_data))
+        "Content-Length": str(len(json.dumps(post_data)))
     }
 
     url = TELEGRAM_HOSTNAME + "/bot" + token + "/sendMessage"
@@ -113,7 +111,7 @@ def make_getfile_url(token):
     """
     return TELEGRAM_HOSTNAME + "/bot" + token + "/getFile"
 
-def make_keyboard(items, items_per_row=0, add_home=True):
+def make_keyboard(items, items_per_row=0, add_home=""):
     """ Makes a keyboard json out of items list and order them per items_per_row.
 
     Args:
@@ -142,8 +140,8 @@ def make_keyboard(items, items_per_row=0, add_home=True):
     if len(row) != 0:
         keyboard.append(list(row))
 
-    if add_home:
-        keyboard.append([HOME_TEXT])
+    if add_home != "":
+        keyboard.append([add_home])
 
     return keyboard
 
@@ -152,7 +150,6 @@ def send_file(token, chat_id, text, file_bucket, file_key):
 
     Args:
         token: telegram api key
-        msg_id: in case we want to reply
         chat_id: ID of the chat with the user
         text: text to be sent with the link
         file_bucket: bucket of the file in S3
@@ -255,7 +252,6 @@ def send_keyboard(token, chat_id, text, keyboard=[], one_time=True, resize=True)
 
     Args:
         token: telegram api key
-        msg_id: in case we want to reply
         chat_id: ID of the chat with the user
         text: text to be sent with the link
         keyboard: a compiled keyboard to be sent to the user
@@ -285,7 +281,7 @@ def send_keyboard(token, chat_id, text, keyboard=[], one_time=True, resize=True)
 
     headers = {
         "Content-Type": "application/json",
-        "Content-Length": len(json.dumps(post_data))
+        "Content-Length": str(len(json.dumps(post_data)))
     }
 
     url = TELEGRAM_HOSTNAME + "/bot" + token + "/sendMessage"
@@ -309,7 +305,6 @@ def send_message(token, chat_id, text, keyboard=[]):
 
     Args:
         token: telegram api key
-        msg_id: in case we want to reply
         chat_id: ID of the chat with the user
         text: text to be sent with the link
         keyboard: a compiled keyboard to be sent to the user
@@ -331,13 +326,13 @@ def send_message(token, chat_id, text, keyboard=[]):
 
     post_data["reply_markup"] = {
         "keyboard": keyboard,
-        "one_time_keyboard": True,
+        "one_time_keyboard": False,
         "resize_keyboard": True
     }
 
     headers = {
         "Content-Type": "application/json",
-        "Content-Length": len(json.dumps(post_data))
+        "Content-Length": str(len(json.dumps(post_data)))
     }
 
     url = TELEGRAM_HOSTNAME + "/bot" + token + "/sendMessage"
@@ -390,3 +385,45 @@ def save_request(chat_id, msg_id, user_name, event, table_name="MajlisMonitorBot
     except ClientError as error:
         raise AWSError("Problem writing to DB {} ({})".format(table_name, str(error)))
     return response
+
+def send_photo(token, chat_id, photo, photoname, keyboard=[]):
+    """ Returns a photo to the user
+
+    Args:
+        token: telegram api key
+        chat_id: ID of the chat with the user
+        photo: photo binary to be sent to the user
+        keyboard: a compiled keyboard to be sent to the user
+    Returns:
+        Telegram response object
+    Raises:
+        TelegramError: Telegram API call failed
+    """
+    if photo is None or len(photo) <= 0:
+        raise ValidationError("Photo cannot be empty")
+
+    post_data = {
+        "chat_id": chat_id,
+    }
+
+    photo_data = {
+        "photo": (photoname, photo)
+    }
+    url = TELEGRAM_HOSTNAME + "/bot" + token + "/sendPhoto"
+
+    try:
+        response = requests.post(url, files=photo_data, data=post_data)
+
+    except ConnectionError as error:
+        raise TelegramError("Error connecting to Telegram API: {}".format(str(error)))
+    except HTTPError as error:
+        raise TelegramError("Error in POST request to Telegram API: {}".format(str(error)))
+    except Timeout as error:
+        raise TelegramError("Timeout connecting to Telegram API: {}".format(str(error)))
+
+    data = response.json()
+    if response.status_code >= 400:
+        raise TelegramError("Error response from Telegram API:"
+                            " {} {}".format(str(response), response.text))
+    return response
+
