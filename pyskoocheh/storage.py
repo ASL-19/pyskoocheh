@@ -7,6 +7,7 @@ from datetime import datetime
 import requests
 import boto3
 from boto3.session import Session
+from botocore.client import Config
 from botocore.exceptions import ClientError
 from pyskoocheh.errors import AWSError, ValidationError
 
@@ -49,6 +50,67 @@ def get_binary_contents(bucket, key):
     s3_resource = boto3.resource("s3")
     try:
         response = s3_resource.Object(bucket, key).get()
+    except ClientError as error:
+        raise AWSError("Error loading file from S3: {}".format(str(error)))
+    return response
+
+def put_file_with_creds(bucket, key, content, access_key, secret_key):
+    """ Get a file from S3 using Specific Credentials
+
+    Args:
+        bucket: name of bucket
+        key: key id in bucket
+        content: file body content
+        access_key: user's access_key
+        secret_key: user's secret_key
+    Raises:
+        AWSError: couldn't fetch file contents from S3
+    """ 
+    if key is None or len(key) <= 0:
+        raise ValidationError("Key name cannot be empty.")
+
+    if bucket is None or len(bucket) <= 0:
+        raise ValidationError("Bucket name cannot be empty.")
+
+    s3 = boto3.client("s3",
+        aws_access_key_id=access_key,
+        aws_secret_access_key=secret_key)
+
+    try:
+        s3.put_object(
+            Bucket=bucket,
+            Key=key,
+            Body=content)
+
+    except ClientError as error:
+        raise AWSError("Problem putting {} from {} bucket ({})"
+                       .format(key, bucket, str(error)))
+    return
+
+def get_file_with_creds(bucket, key, access_key, secret_key):
+    """ Get a file from S3 using Specific Credentials
+
+    Args:
+        bucket: name of bucket
+        key: key id in bucket
+        access_key: user's access_key
+        secret_key: user's secret_key
+    Returns:
+        Stream object with contents
+    Raises:
+        AWSError: couldn't fetch file contents from S3
+    """ 
+    if key is None or len(key) <= 0:
+        raise ValidationError("Key name cannot be empty.")
+
+    if bucket is None or len(bucket) <= 0:
+        raise ValidationError("Bucket name cannot be empty.")
+
+    s3 = boto3.client("s3",
+        aws_access_key_id=access_key,
+        aws_secret_access_key=secret_key)
+    try:
+        response = s3.get_object(Bucket=bucket, Key=key)
     except ClientError as error:
         raise AWSError("Error loading file from S3: {}".format(str(error)))
     return response
@@ -123,10 +185,11 @@ def put_object_metadata(bucket, key, meta_key, meta_value):
         )
     except ClientError as error:
         raise AWSError("Error loading metadata from S3: {}".format(str(error)))
-    return obj
 
 def get_temp_link(bucket, key, key_id, secret_key, expiry=300):
     """ Get expiring S3 url with temp token
+
+    NB: bucket must be in us-east-1 to use path addressing!
 
     Args:
         bucket: name of bucket
@@ -144,7 +207,7 @@ def get_temp_link(bucket, key, key_id, secret_key, expiry=300):
         aws_access_key_id=key_id,
         aws_secret_access_key=secret_key
     )
-    s3_client = session.client("s3")
+    s3_client = session.client("s3", config=Config(s3={'addressing_style': 'path'}))
     try:
         link = s3_client.generate_presigned_url(
             ExpiresIn=expiry,

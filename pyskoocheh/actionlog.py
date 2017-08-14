@@ -5,12 +5,13 @@ import hashlib
 import time as systime
 import boto3
 from botocore.exceptions import ClientError
-from pyskoocheh.errors import AWSError
+from errors import AWSError
+
 
 CLEARED_USER_ID = "-"
 
 # DynamoDB functions
-def is_limit_exceeded(user_name, action_name, expiry=85000):
+def is_limit_exceeded(user_name, action_name, expiry=85000, table=None):
     """ Access rate limit table in DynamoDB and
         limit to one request per file per 23 hours (85000 seconds)
 
@@ -25,9 +26,12 @@ def is_limit_exceeded(user_name, action_name, expiry=85000):
     """
     dynamodb = boto3.client("dynamodb")
     user_hash = hashlib.sha512(str(user_name)).hexdigest()
+    if table is None:
+        table = "action_log"
+
     try:
         requests_today = dynamodb.query(
-            TableName="action_log",
+            TableName=table,
             KeyConditionExpression="user_name = :user_name AND action_time > :action_time",
             FilterExpression="action_name = :action_name",
             ExpressionAttributeValues={
@@ -66,6 +70,7 @@ def user_has_requested_file(user_name):
     return bool(requests["Count"])
 
 def clear_user_id(age, maxdel = 100):
+
     """ Clear old records user ids
 
     Args:
@@ -88,11 +93,12 @@ def clear_user_id(age, maxdel = 100):
     }
 
     dynamodb = boto3.client("dynamodb")
-
+    
     query_done = False
     previous_key = {}
     deleted = 0
 
+    deleted_items = []
     while not query_done:
         if previous_key != {}:
             putitem_args["ExclusiveStartKey"] = previous_key
@@ -102,12 +108,10 @@ def clear_user_id(age, maxdel = 100):
 
         except ClientError as error:
             raise AWSError("Unable to query action log: {}".format(str(error)))
-
         if "LastEvaluatedKey" in result:
             previous_key = result["LastEvaluatedKey"]
         else:
             query_done = True
-
         # We can use batch_write_item for optimization
         if result["Count"] != 0:
             for item in result["Items"]:
@@ -115,12 +119,23 @@ def clear_user_id(age, maxdel = 100):
                 # We are limiting the number of records to be deleted each time
                 deleted += 1
                 if deleted > maxdel:
-                    return maxdel, result["Count"]
+                    break
+                    #return maxdel, result["Count"]
+                
 
                 try:
 
-                    log_action(CLEARED_USER_ID, item["action_name"]["S"], item["source"]["S"], item["action_time"]["N"], "action_log_cleaned")
+                    name = str(item["action_name"]["S"])
+                    time = str(item["action_time"]["N"])
+                    source = str(item["source"]["S"])
+                    log_action(CLEARED_USER_ID, name, source, time, "action_log_cleaned")
 
+                    deleted_items.append({
+                            "name": name,
+                            "time": time,
+                            "source": source
+                    })
+                    
                     dynamodb.delete_item(
                         TableName = "action_log",
                         Key = {
@@ -132,7 +147,7 @@ def clear_user_id(age, maxdel = 100):
                 except ClientError as error:
                     raise AWSError("Unable to update item from action log: {}".format(str(error)))
 
-    return -1, result["Count"]
+    return deleted, deleted_items
 
 
 def clean_action_log(age, maxdel = 100):
@@ -145,6 +160,7 @@ def clean_action_log(age, maxdel = 100):
         None
     Raises:
         AWSError: dynamodb call failed
+    
     """
 
     # Convert the age to a proper epoch time
@@ -198,7 +214,7 @@ def clean_action_log(age, maxdel = 100):
                 except ClientError as error:
                     raise AWSError("Unable to delete item from action log: {}".format(str(error)))
 
-    return -1, result["Count"]
+    return deleted, result["Count"]
 
 def log_action(user_name, action_name, source, time = None, table = None):
     """ Log action to action_log table for analytics

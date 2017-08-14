@@ -21,3 +21,6 @@ class TelegramError(PyskoochehException):
 
 class ValidationError(PyskoochehException):
     """ Validation Error Wrapper """
+
+class HTTPError(PyskoochehException):
+    """ HTTP Error on Requests """
