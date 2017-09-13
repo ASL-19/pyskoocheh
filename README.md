@@ -48,3 +48,49 @@ paskoocheh-related activities.
     send_keyboard(token, chat_id, text, keyboard, one_time=True, resize=True)
     send_message(token, chat_id, text, keyboard=True)
     save_request(chat_id, msg_id, user_name, event, table_name="MajlisMonitorBot")
+
+### pyskoocheh.crypto
+
+Provides PGP-based crypto functions 
+
+#### Classes
+##### SignatureManager
+
+     Compute the pgp signature and sha256 checksum of the binary content of posted files to the backend or a text strings.
+     calc_signature
+     sign_string
+     calc_compute_checksum
+
+### pyskoocheh.google_play_store
+#### Functions
+
+##### DEPENDENCIES:
+  * Python 2.7+
+  * Python Modules:
+    * requests
+    * PyCrypto
+
+##### MOTIVATION:
+  * Google has updated its server side authentication regarding the Google Play Store API, consequently breaking authentication with E-mail and Password combination in unofficial Python Google Play Store API modules (August 2017).
+  * Token authentication was still functional, however there existed only a Java Google Play Store Token Dispenser.
+  * Translating the Java Google Play Store Token Dispensers to Python provided many benefits to our projects that need Google Play Store authentication.
+  * Original Java sources:
+    * https://github.com/yeriomin/token-dispenser
+    * https://github.com/yeriomin/play-store-api
+
+##### OBJECTIVE:
+  * Provided the correct E-mail and Password credential combination, returns a Google Play Store Authentication Token which can then be used with the Google Play API
+
+##### USAGE:
+  * As a standalone application:
+    * `$ python google_play_store.py <e-mail> <password>`
+  * As a Python module:
+    * Import the module in your Python application `import google_play_store as gpstd`
+    * Request for token: `gpstd.GooglePlayStoreTokenDispenser("<e-mail>", "<password>").get_token()`
+    * Or
+
+```
+        gpstd.GooglePlayStoreTokenDispenser()           \
+             .set_credentials("<e-mail>", "<password>") \
+             .get_token()
+```
