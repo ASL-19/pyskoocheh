@@ -32,6 +32,7 @@ class SignatureManager:
             Armored pgp signature of the file content
         """
         with self.signing_key.unlock(self.signing_key_password):
+            file_to_be_signed.seek(0)
             message_to_be_signed = pgpy.PGPMessage.new(file_to_be_signed.read())
             return str(self.signing_key.sign(message_to_be_signed))
 
@@ -60,4 +61,5 @@ class SignatureManager:
             the sha256 hash value of the binary content of the file in hexadecimal representation.
         
         """
+        file_to_be_summed.seek(0)
         return hashlib.sha256(file_to_be_summed.read()).hexdigest()
