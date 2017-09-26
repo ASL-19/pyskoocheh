@@ -6,28 +6,6 @@
 import re
 
 
-def telegraph_add_links(res_data, sel):
-    '''
-        Adds 'next page' links to telegra.ph pages
-
-        Args:
-        res_data: a dictionary with recently modified urls stored with
-        structure {'os1: {'app1': ['url1', 'url2', ...]}, ...}
-        sel: Telegraph object created with secret access token
-    '''
-
-    for os in res_data:
-        for app in res_data[os]:
-            if len(res_data[os][app]) > 1:
-                for i in range(len(res_data[os][app]) - 1):
-                    path = res_data[os][app][i].replace("http://telegra.ph", "")
-                    if path and len(path) > 0:
-                        page = sel.get_page(path, return_content=True)
-                        content = page.content
-                        content[0]['children'][-3]['attrs']['href'] = res_data[os][app][i + 1]
-                        page = sel.edit_page(path, page.title, content, page.author_name, page.author_url)
-
-
 def telegraph_tame_text(text):
     '''
         Identifies links and images in input and converts text telegraph-friendly
@@ -119,15 +97,14 @@ def telegraph_create_pages(cont_dic_list, sel, author):
         path = item['path']
         title = item['title']
         cont = item['content']
-        version = item['version']
+        HEAder = item['header']
         new_page = None
         if path and len(path) > 0:
             new_page = sel.edit_page(path, title, content=cont, author_name=author, author_url='https://paskoocheh.com/')
+            return None
 
         else:
-            _title = version.tool.name + ' (' + version.supported_os.display_name + ') - FAQs'
-            new_page = sel.create_page(title=_title, content=[{"tag": "p", "children": ["No content"]}], author_name='Anonymous', author_url='http://telegra.ph/', return_content='true')
+            new_page = sel.create_page(title=header, content=[{"tag": "p", "children": ["No content"]}], author_name='Anonymous', author_url='http://telegra.ph/', return_content='true')
             new_page = sel.edit_page(path=new_page['path'], title=title, content=cont, author_name=author, author_url='https://paskoocheh.com/')
-            version.faq_urls = 'http://telegra.ph/' + new_page['path']
-            version.save()
-
+            new_url = 'http://telegra.ph/' + new_page['path']
+            return new_url
