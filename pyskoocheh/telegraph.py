@@ -93,12 +93,13 @@ def telegraph_create_pages(cont_dic_list, sel, author):
         author: name of telegra.ph pages' author retrieved from settings
     '''
 
+    urls = []
+
     for item in cont_dic_list:
         path = item['path']
         title = item['title']
         cont = item['content']
         header = item['header']
-        urls = []
 
         if path and len(path) > 0:
             new_page = sel.edit_page(path, title, content=cont, author_name=author, author_url='https://paskoocheh.com/')
