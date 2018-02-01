@@ -21,7 +21,8 @@ def telegraph_tame_text(text):
     if text is None:
         return []
 
-    INLINE_IMAGE_RE = re.compile(r'\!\[\]\(([^\)]*)\)')
+    # INLINE_IMAGE_RE = re.compile(r'\!\[\]\(([^\)]*)\)')
+    INLINE_IMAGE_RE = re.compile(r'(\!\[\]\(.*\n.*\)|\!\[\]\(.*\))')
     pics = INLINE_IMAGE_RE.findall(text)
     res_list = []
     current_index = 0
@@ -30,11 +31,14 @@ def telegraph_tame_text(text):
     if len(pics) > 0:
         link_found = True
         for pic in pics:
+            pic_src = pic.replace('\n','')
+            pic_src = re.sub(r'\!\[\]\(', '', pic_src)
+            pic_src = re.sub(r'\)$', '', pic_src)
             subtext = text[current_index:]
             ind = current_index + subtext.index(pic) - 4
             res_list.append(text[current_index:ind])
             res_list.append({"tag": "br"})
-            res_list.append({"tag": "img", "attrs": {"src": pic.encode('utf8')}})
+            res_list.append({"tag": "img", "attrs": {"src": pic_src.encode('utf8')}})
             current_index = subtext.index(pic) + current_index + len(pic) + 1
 
         res_list.append(text[current_index:])
