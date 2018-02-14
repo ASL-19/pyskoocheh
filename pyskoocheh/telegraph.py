@@ -106,12 +106,17 @@ def telegraph_create_pages(cont_dic_list, sel, author):
         header = item['header']
 
         if path and len(path) > 0:
-            new_page = sel.edit_page(path, title, content=cont, author_name=author, author_url='https://paskoocheh.com/')
-
+            try:
+            	new_page = sel.edit_page(path, title, content=cont, author_name=author, author_url='https://paskoocheh.com/')
+            except Exception as exc:
+                new_page = sel.create_page(title=header, content=[{"tag": "p", "children": ["No content"]}], author_name='Anonymous', author_url='http://telegra.ph/', return_content='true')
+            	new_page = sel.edit_page(path=new_page['path'], title=title, content=cont, author_name=author, author_url='https://paskoocheh.com/')
+                
         else:
             new_page = sel.create_page(title=header, content=[{"tag": "p", "children": ["No content"]}], author_name='Anonymous', author_url='http://telegra.ph/', return_content='true')
             new_page = sel.edit_page(path=new_page['path'], title=title, content=cont, author_name=author, author_url='https://paskoocheh.com/')
-            new_url = 'http://telegra.ph/' + new_page['path']
-            urls.append(new_url)
+
+        new_url = 'http://telegra.ph/' + new_page['path']
+        urls.append(new_url)
 
     return urls
